@@ -196,6 +196,75 @@ int test_unsubscribe_manual()
 }
 
 
+int test_long_subscription()
+{
+    void *ctx = zmq_ctx_new ();
+    assert (ctx);
+
+    //  Create a publisher
+    void *pub = zmq_socket (ctx, ZMQ_XPUB);
+    assert (pub);
+    int rc = zmq_bind (pub, "inproc://soname");
+    assert (rc == 0);
+
+    //  set pub socket options
+    int manual = 1;
+    rc = zmq_setsockopt(pub, ZMQ_XPUB_MANUAL, &manual, 4);
+    assert (rc == 0);
+
+    //  Create a subscriber
+    void *sub = zmq_socket (ctx, ZMQ_XSUB);
+    assert (sub);
+    rc = zmq_connect (sub, "inproc://soname");
+    assert (rc == 0);
+
+    //  Make long subscription for long sequence of As
+    const size_t len = 65481;
+    char subscription[len + 1] = { 1 };
+    for (size_t i = 0; i < len; i++)
+    {
+        subscription [i + 1] = 'A';
+    }
+    rc = zmq_send_const(sub, subscription, len + 1, 0);
+    assert (rc == len + 1);
+
+    char buffer[len + 1];
+
+    // Receive long subscription from subscriber
+    rc = zmq_recv(pub, buffer, len + 1, 0);
+    assert(rc == len + 1);
+    assert(buffer[0] == 1);
+    assert(buffer[1] == 'A');
+    assert(buffer[2] == 'A');
+    assert(buffer[len] == 'A');
+
+    // Subscribe socket for just "A" instead
+    rc = zmq_setsockopt(pub, ZMQ_SUBSCRIBE, "B", 1);
+    assert(rc == 0);
+
+    // Sending A message and B Message
+    rc = zmq_send_const(pub, "A", 1, 0);
+    assert(rc == 1);
+
+    rc = zmq_send_const(pub, "B", 1, 0);
+    assert(rc == 1);
+
+    rc = zmq_recv(sub, buffer, 1, ZMQ_DONTWAIT);
+    assert(rc == 1);
+    assert(buffer[0] == 'B');
+
+    //  Clean up.
+    rc = zmq_close (pub);
+    assert (rc == 0);
+    rc = zmq_close (sub);
+    assert (rc == 0);
+    rc = zmq_ctx_term (ctx);
+    assert (rc == 0);
+
+    return 0 ;
+}
+
+
 int test_xpub_proxy_unsubscribe_on_disconnect(const char *frontend,
                                               const char *backend)
 {
@@ -456,6 +525,7 @@ int main(void)
     setup_test_environment ();
     test_basic ();
     test_unsubscribe_manual ();
+    test_long_subscription ();
 
     const char *frontend;
     const char *backend;
