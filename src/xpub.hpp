@@ -31,6 +31,8 @@
 #define __ZMQ_XPUB_HPP_INCLUDED__
 
 #include <deque>
+#include <map>
+#include <set>
 #include <string>
 
 #include "socket_base.hpp"
@@ -80,7 +82,7 @@ namespace zmq
         mtrie_t subscriptions;
 
         //  List of manual subscriptions mapped to corresponding pipes.
-        mtrie_t manual_subscriptions;
+        std::map<pipe_t*, std::multiset<blob_t> > manual_subscriptions;
 
         //  Distributor of messages holding the list of outbound pipes.
         dist_t dist;
@@ -113,7 +115,6 @@ namespace zmq
 
         //  List of pending (un)subscriptions, ie. those that were already
         //  applied to the trie, but not yet received by the user.
-        typedef std::basic_string <unsigned char> blob_t;
         std::deque <blob_t> pending_data;
         std::deque <metadata_t*> pending_metadata;
         std::deque <unsigned char> pending_flags;

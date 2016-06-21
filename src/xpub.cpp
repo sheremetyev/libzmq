@@ -94,9 +94,11 @@ void zmq::xpub_t::xread_activated (pipe_t *pipe_)
             {
                 // Store manual subscription to use on termination
                 if (*data == 0)
-                    manual_subscriptions.rm(data + 1, size - 1, pipe_);
+                    manual_subscriptions[pipe_].erase(
+                        blob_t(data + 1, size - 1));
                 else
-                    manual_subscriptions.add(data + 1, size - 1, pipe_);
+                    manual_subscriptions[pipe_].insert(
+                        blob_t(data + 1, size - 1));
 
                 pending_pipes.push_back(pipe_);
                 pending_data.push_back(blob_t(data, size));
@@ -201,7 +203,14 @@ void zmq::xpub_t::xpipe_terminated (pipe_t *pipe_)
     {
         //  Remove the pipe from the trie and send corresponding manual
         //  unsubscriptions upstream.
-        manual_subscriptions.rm (pipe_, send_unsubscription, this, false);
+        std::multiset<blob_t> & pipe_subs = manual_subscriptions[pipe_];
+        for (std::multiset<blob_t>::iterator it = pipe_subs.begin ();
+            it != pipe_subs.end (); ++it)
+        {
+            send_unsubscription ((unsigned char*) it->data (), it->size (),
+                this);
+        }
+        manual_subscriptions.erase (pipe_);
     }
     else
     {
