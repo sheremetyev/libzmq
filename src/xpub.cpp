@@ -94,8 +94,15 @@ void zmq::xpub_t::xread_activated (pipe_t *pipe_)
             {
                 // Store manual subscription to use on termination
                 if (*data == 0)
-                    manual_subscriptions[pipe_].erase(
-                        blob_t(data + 1, size - 1));
+                {
+                    std::multiset<blob_t> & pipe_subs = manual_subscriptions[pipe_];
+                    std::multiset<blob_t>::iterator it =
+                        pipe_subs.find (blob_t(data + 1, size - 1));
+                    if (it != pipe_subs.end ())
+                    {
+                        pipe_subs.erase (it);
+                    }
+                }
                 else
                     manual_subscriptions[pipe_].insert(
                         blob_t(data + 1, size - 1));
