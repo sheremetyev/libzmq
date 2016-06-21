@@ -219,7 +219,7 @@ int test_long_subscription()
     assert (rc == 0);
 
     //  Make long subscription for long sequence of As
-    const size_t len = 65481;
+    const size_t len = 218289;
     char subscription[len + 1] = { 1 };
     for (size_t i = 0; i < len; i++)
     {
