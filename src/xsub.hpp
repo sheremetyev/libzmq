@@ -84,6 +84,9 @@ namespace zmq
         //  The repository of subscriptions.
         trie_t subscriptions;
 
+        //  Repository of subscriptions in manual mode.
+        std::multiset<blob_t> manual_subcriptions;
+
         //  If true, 'message' contains a matching message to return on the
         //  next recv call.
         bool has_message;

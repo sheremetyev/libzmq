@@ -64,7 +64,18 @@ void zmq::xsub_t::xattach_pipe (pipe_t *pipe_, bool subscribe_to_all_)
     dist.attach (pipe_);
 
     //  Send all the cached subscriptions to the new upstream peer.
-    subscriptions.apply (send_subscription, pipe_);
+    if (options.filter)
+    {
+        subscriptions.apply (send_subscription, pipe_);
+    }
+    else
+    {
+        for (std::multiset<blob_t>::iterator it = manual_subcriptions.begin ();
+            it != manual_subcriptions.end (); ++it)
+        {
+            send_subscription ((unsigned char*)it->data (), it->size (), pipe_);
+        }
+    }
     pipe_->flush ();
 }
 
@@ -87,7 +98,18 @@ void zmq::xsub_t::xpipe_terminated (pipe_t *pipe_)
 void zmq::xsub_t::xhiccuped (pipe_t *pipe_)
 {
     //  Send all the cached subscriptions to the hiccuped pipe.
-    subscriptions.apply (send_subscription, pipe_);
+    if (options.filter)
+    {
+        subscriptions.apply (send_subscription, pipe_);
+    }
+    else
+    {
+        for (std::multiset<blob_t>::iterator it = manual_subcriptions.begin ();
+            it != manual_subcriptions.end (); ++it)
+        {
+            send_subscription ((unsigned char*)it->data (), it->size (), pipe_);
+        }
+    }
     pipe_->flush ();
 }
 
@@ -102,14 +124,38 @@ int zmq::xsub_t::xsend (msg_t *msg_)
         //  however this is alread done on the XPUB side and
         //  doing it here as well breaks ZMQ_XPUB_VERBOSE
         //  when there are forwarding devices involved.
-        subscriptions.add (data + 1, size - 1);
+        if (options.filter)
+        {
+            subscriptions.add (data + 1, size - 1);
+        }
+        else
+        {
+            manual_subcriptions.insert (blob_t (data + 1, size - 1));
+        }
         return dist.send_to_all (msg_);
     }
     else
     if (size > 0 && *data == 0) {
         //  Process unsubscribe message
-        if (subscriptions.rm (data + 1, size - 1))
-            return dist.send_to_all (msg_);
+        if (options.filter)
+        {
+            if (subscriptions.rm (data + 1, size - 1))
+                return dist.send_to_all (msg_);
+        }
+        else
+        {
+            std::multiset<blob_t>::iterator it;
+            it = manual_subcriptions.find (blob_t (data + 1, size - 1));
+            if (it != manual_subcriptions.end ())
+            {
+                manual_subcriptions.erase (it);
+                it = manual_subcriptions.find (blob_t (data + 1, size - 1));
+                if (it == manual_subcriptions.end ())
+                {
+                    return dist.send_to_all (msg_);
+                }
+            }
+        }
     }
     else
         //  User message sent upstream to XPUB socket
